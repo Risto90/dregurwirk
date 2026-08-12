@@ -8,11 +8,7 @@ Remixed Dungeon
 
 Classic roguelike with pixel graphics, simple interface and extensive modding features.
 
-This is fork of Famous Pixel Dungeon featuring English, Russian and many more localizations.
-
-Remixed Dungeon in [Google Play](https://play.google.com/store/apps/details?id=com.nyrds.pixeldungeon.ml&referrer=utm_source%3Dgithub%26utm_content%3Dreadme)
-
-[![Get it from the Snap Store](https://snapcraft.io/en/dark/install.svg)](https://snapcraft.io/remixed-pixel-dungeon)
+This is a fork of [NYRDS/remixed-dungeon](https://github.com/NYRDS/remixed-dungeon), itself a fork of the famous Pixel Dungeon, featuring English, Russian and many more localizations.
 
 [Remixed Dungeon translation project](https://app.transifex.com/nyrds/remixed-dungeon/)
 
