@@ -78,15 +78,24 @@ class TestRunner:
         willing to wait for.
         """
         print("Warming up the engine...", end="", flush=True)
-        self.client.start_game("WARRIOR")
         start = time.time()
+        attempt = 0
         while time.time() - start < timeout:
-            state = self.client.get_game_state()
-            if "hero" in state and "error" not in state:
-                print(f" done in {int(time.time() - start)}s")
-                return True
-            print(".", end="", flush=True)
-            time.sleep(2)
+            # The very first start_game after boot never produces a game: the
+            # request is accepted while the engine is still switching to its
+            # initial scene, and the new game is lost with it. Re-issuing it
+            # works, so keep asking until a hero shows up.
+            self.client.start_game("WARRIOR")
+            attempt += 1
+            deadline = time.time() + 20
+            while time.time() < deadline and time.time() - start < timeout:
+                state = self.client.get_game_state()
+                if "hero" in state and "error" not in state:
+                    print(f" done in {int(time.time() - start)}s "
+                          f"({attempt} start_game call(s))")
+                    return True
+                print(".", end="", flush=True)
+                time.sleep(2)
         print(" TIMEOUT!")
         return False
 

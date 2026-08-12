@@ -92,13 +92,17 @@ jobs:
               # /ready only means the game loop is running; building the first
               # game costs another minute on a cold JVM. Do it now so the
               # suites do not time out on it.
-              curl -sf "http://localhost:8080/debug/start_game?class=WARRIOR&difficulty=0" > /dev/null || true
-              for j in $(seq 1 120); do
-                if curl -sf http://localhost:8080/debug/get_game_state 2>/dev/null | grep -q '"hero"'; then
-                  echo "First game built after ${j} polls"
-                  exit 0
-                fi
-                sleep 2
+              # The first start_game after boot is lost while the engine is
+              # still switching to its initial scene, so keep asking.
+              for j in $(seq 1 12); do
+                curl -sf "http://localhost:8080/debug/start_game?class=WARRIOR&difficulty=0" > /dev/null || true
+                for k in $(seq 1 10); do
+                  if curl -sf http://localhost:8080/debug/get_game_state 2>/dev/null | grep -q '"hero"'; then
+                    echo "First game built after ${j} start_game call(s)"
+                    exit 0
+                  fi
+                  sleep 2
+                done
               done
               echo "::error::WebServer became ready but never built a game"
               exit 1
