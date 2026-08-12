@@ -5,6 +5,13 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
+
+env:
+  # LWJGL3 always creates a GL context, so the game needs a display even in
+  # minimized mode. Force the Mesa software rasterizer under Xvfb.
+  LIBGL_ALWAYS_SOFTWARE: "1"
+  XVFB_ARGS: "-screen 0 1024x768x24"
 
 jobs:
   run-tests:
@@ -15,7 +22,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
+
+      - name: Init luaj submodule
+        run: git submodule update --init --depth 1 luaj
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -33,16 +43,47 @@ jobs:
           python3 -m pip install --upgrade pip
           python3 -m pip install requests
 
+      - name: Install virtual display and software OpenGL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libgl1-mesa-dri libglu1-mesa
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Compile desktop sources
+        run: ./gradlew -p RemixedDungeonDesktop classes
+
+      # --- Suites that start and stop their own game server ---
+
       - name: Run Blood Transfusion Tests
-        run: python3 tests/http_api/test_blood_transfusion.py
-        timeout-minutes: 15
+        run: xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_blood_transfusion.py
+        timeout-minutes: 20
 
       - name: Run Level Navigation Tests
-        run: python3 tests/http_api/test_level_navigation.py
-        timeout-minutes: 15
+        run: xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_level_navigation.py
+        timeout-minutes: 20
+
+      # --- Suites that expect a WebServer to be already running on port 8080 ---
+
+      - name: Start shared WebServer
+        run: |
+          nohup xvfb-run -a --server-args="$XVFB_ARGS" \
+            ./gradlew -p RemixedDungeonDesktop runDesktopGameWithWebServer \
+            --args="--webserver=8080 --minimized" > /tmp/webserver.log 2>&1 &
+          echo $! > /tmp/webserver.pid
+          for i in $(seq 1 120); do
+            if curl -sf http://localhost:8080/ready 2>/dev/null | grep -q '"ready"[[:space:]]*:[[:space:]]*true'; then
+              echo "WebServer is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::WebServer did not become ready within 240s"
+          echo "::error::$(tail -c 900 /tmp/webserver.log | tr '\n\r' '  ')"
+          tail -n 100 /tmp/webserver.log
+          exit 1
+        timeout-minutes: 10
 
       - name: Run Doctor Spells Tests
         run: python3 tests/http_api/test_doctor_spells.py
@@ -55,3 +96,24 @@ jobs:
       - name: Run Alchemy Tests
         run: python3 tests/http_api/test_alchemy.py
         timeout-minutes: 15
+
+      - name: Stop shared WebServer
+        if: always()
+        run: |
+          if [ -f /tmp/webserver.pid ]; then kill "$(cat /tmp/webserver.pid)" 2>/dev/null || true; fi
+          pkill -f runDesktopGameWithWebServer 2>/dev/null || true
+          pkill -f DesktopLauncher 2>/dev/null || true
+
+      - name: Surface WebServer log on failure
+        if: failure()
+        run: |
+          echo "::error::$(tail -c 900 /tmp/webserver.log 2>/dev/null | tr '\n\r' '  ')"
+          tail -n 200 /tmp/webserver.log || true
+
+      - name: Upload WebServer log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webserver-log
+          path: /tmp/webserver.log
+          if-no-files-found: ignore
