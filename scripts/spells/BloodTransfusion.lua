@@ -42,7 +42,7 @@ return spell.init{
             caster:getSprite():emitter():start(RPD.Sfx.ElmoParticle.FACTORY, 0.05, 20)
 
             -- Sound effect
-            RPD.playSound("snd_heal.mp3")
+            RPD.playSound("snd_dewdrop")
 
             RPD.glog('BloodTransfusion_Drained')
             return true
