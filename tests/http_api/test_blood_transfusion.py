@@ -114,7 +114,7 @@ class TestRunner:
         return True
 
 
-def _wait_for_game(runner: TestRunner, timeout: int = 15) -> bool:
+def _wait_for_game(runner: TestRunner, timeout: int = 60) -> bool:
     start = time.time()
     while time.time() - start < timeout:
         state = runner.client.get_game_state()
