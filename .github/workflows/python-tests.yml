@@ -89,7 +89,19 @@ jobs:
           for i in $(seq 1 120); do
             if curl -sf http://localhost:8080/ready 2>/dev/null | grep -q '"ready"[[:space:]]*:[[:space:]]*true'; then
               echo "WebServer is ready"
-              exit 0
+              # /ready only means the game loop is running; building the first
+              # game costs another minute on a cold JVM. Do it now so the
+              # suites do not time out on it.
+              curl -sf "http://localhost:8080/debug/start_game?class=WARRIOR&difficulty=0" > /dev/null || true
+              for j in $(seq 1 120); do
+                if curl -sf http://localhost:8080/debug/get_game_state 2>/dev/null | grep -q '"hero"'; then
+                  echo "First game built after ${j} polls"
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo "::error::WebServer became ready but never built a game"
+              exit 1
             fi
             sleep 2
           done

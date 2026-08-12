@@ -63,6 +63,27 @@ class TestRunner:
         while time.time() - start_time < max_wait:
             if self.client.check_server():
                 print(" READY!")
+                return self.warm_up()
+            print(".", end="", flush=True)
+            time.sleep(2)
+        print(" TIMEOUT!")
+        return False
+
+    def warm_up(self, timeout: int = 240) -> bool:
+        """Build one throwaway game so the checks do not pay for first-time init.
+
+        /ready only reports that the game loop is running. Creating the first
+        game costs another minute or so on a cold JVM - mods, scripts and
+        level generation - which is far longer than any single check is
+        willing to wait for.
+        """
+        print("Warming up the engine...", end="", flush=True)
+        self.client.start_game("WARRIOR")
+        start = time.time()
+        while time.time() - start < timeout:
+            state = self.client.get_game_state()
+            if "hero" in state and "error" not in state:
+                print(f" done in {int(time.time() - start)}s")
                 return True
             print(".", end="", flush=True)
             time.sleep(2)
