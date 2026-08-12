@@ -51,17 +51,30 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Prepare log directory
+        run: mkdir -p /tmp/logs
+
       - name: Compile desktop sources
         run: ./gradlew -p RemixedDungeonDesktop classes
 
       # --- Suites that start and stop their own game server ---
 
       - name: Run Blood Transfusion Tests
-        run: xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_blood_transfusion.py
+        run: |
+          set -o pipefail
+          if ! xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_blood_transfusion.py 2>&1 | tee /tmp/logs/blood_transfusion.log; then
+            tail -n 10 /tmp/logs/blood_transfusion.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
         timeout-minutes: 20
 
       - name: Run Level Navigation Tests
-        run: xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_level_navigation.py
+        run: |
+          set -o pipefail
+          if ! xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_level_navigation.py 2>&1 | tee /tmp/logs/level_navigation.log; then
+            tail -n 10 /tmp/logs/level_navigation.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
         timeout-minutes: 20
 
       # --- Suites that expect a WebServer to be already running on port 8080 ---
@@ -70,7 +83,7 @@ jobs:
         run: |
           nohup xvfb-run -a --server-args="$XVFB_ARGS" \
             ./gradlew -p RemixedDungeonDesktop runDesktopGameWithWebServer \
-            --args="--webserver=8080 --minimized" > /tmp/webserver.log 2>&1 &
+            --args="--webserver=8080 --minimized" > /tmp/logs/webserver.log 2>&1 &
           echo $! > /tmp/webserver.pid
           for i in $(seq 1 120); do
             if curl -sf http://localhost:8080/ready 2>/dev/null | grep -q '"ready"[[:space:]]*:[[:space:]]*true'; then
@@ -80,21 +93,36 @@ jobs:
             sleep 2
           done
           echo "::error::WebServer did not become ready within 240s"
-          echo "::error::$(tail -c 900 /tmp/webserver.log | tr '\n\r' '  ')"
-          tail -n 100 /tmp/webserver.log
+          echo "::error::$(tail -c 900 /tmp/logs/webserver.log | tr '\n\r' '  ')"
+          tail -n 100 /tmp/logs/webserver.log
           exit 1
         timeout-minutes: 10
 
       - name: Run Doctor Spells Tests
-        run: python3 tests/http_api/test_doctor_spells.py
+        run: |
+          set -o pipefail
+          if ! python3 tests/http_api/test_doctor_spells.py 2>&1 | tee /tmp/logs/doctor_spells.log; then
+            tail -n 10 /tmp/logs/doctor_spells.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
         timeout-minutes: 15
 
       - name: Run All Spells Tests
-        run: python3 tests/http_api/test_all_spells.py
+        run: |
+          set -o pipefail
+          if ! python3 tests/http_api/test_all_spells.py 2>&1 | tee /tmp/logs/all_spells.log; then
+            tail -n 10 /tmp/logs/all_spells.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
         timeout-minutes: 15
 
       - name: Run Alchemy Tests
-        run: python3 tests/http_api/test_alchemy.py
+        run: |
+          set -o pipefail
+          if ! python3 tests/http_api/test_alchemy.py 2>&1 | tee /tmp/logs/alchemy.log; then
+            tail -n 10 /tmp/logs/alchemy.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit 1
+          fi
         timeout-minutes: 15
 
       - name: Stop shared WebServer
@@ -107,13 +135,17 @@ jobs:
       - name: Surface WebServer log on failure
         if: failure()
         run: |
-          echo "::error::$(tail -c 900 /tmp/webserver.log 2>/dev/null | tr '\n\r' '  ')"
-          tail -n 200 /tmp/webserver.log || true
+          echo "::error::$(tail -c 900 /tmp/logs/webserver.log 2>/dev/null | tr '\n\r' '  ')"
+          tail -n 200 /tmp/logs/webserver.log || true
 
-      - name: Upload WebServer log
+      - name: Collect suite server logs
+        if: always()
+        run: cp /tmp/*_test_*.log /tmp/logs/ 2>/dev/null || true
+
+      - name: Upload logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: webserver-log
-          path: /tmp/webserver.log
+          name: test-logs
+          path: /tmp/logs/
           if-no-files-found: ignore
