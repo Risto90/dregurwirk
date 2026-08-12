@@ -64,7 +64,7 @@ jobs:
         run: |
           set -o pipefail
           if ! xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_blood_transfusion.py 2>&1 | tee /tmp/logs/blood_transfusion.log; then
-            { grep -aE "FAIL|Could not|Traceback|AssertionError|\[Exception\]" /tmp/logs/blood_transfusion.log | grep -avE "ALSA|snd_config|snd_func|_snd_" | tail -n 7; tail -n 3 /tmp/logs/blood_transfusion.log; } | while IFS= read -r line; do echo "::error::$line"; done
+            bash tests/http_api/ci_report_failure.sh /tmp/logs/blood_transfusion.log
             exit 1
           fi
         timeout-minutes: 20
@@ -73,7 +73,7 @@ jobs:
         run: |
           set -o pipefail
           if ! xvfb-run -a --server-args="$XVFB_ARGS" python3 tests/http_api/test_level_navigation.py 2>&1 | tee /tmp/logs/level_navigation.log; then
-            { grep -aE "FAIL|Could not|Traceback|AssertionError|\[Exception\]" /tmp/logs/level_navigation.log | grep -avE "ALSA|snd_config|snd_func|_snd_" | tail -n 7; tail -n 3 /tmp/logs/level_navigation.log; } | while IFS= read -r line; do echo "::error::$line"; done
+            bash tests/http_api/ci_report_failure.sh /tmp/logs/level_navigation.log
             exit 1
           fi
         timeout-minutes: 20
@@ -103,7 +103,7 @@ jobs:
         run: |
           set -o pipefail
           if ! python3 tests/http_api/test_doctor_spells.py 2>&1 | tee /tmp/logs/doctor_spells.log; then
-            { grep -aE "FAIL|Could not|Traceback|AssertionError|\[Exception\]" /tmp/logs/doctor_spells.log | grep -avE "ALSA|snd_config|snd_func|_snd_" | tail -n 7; tail -n 3 /tmp/logs/doctor_spells.log; } | while IFS= read -r line; do echo "::error::$line"; done
+            bash tests/http_api/ci_report_failure.sh /tmp/logs/doctor_spells.log
             exit 1
           fi
         timeout-minutes: 15
@@ -112,7 +112,7 @@ jobs:
         run: |
           set -o pipefail
           if ! python3 tests/http_api/test_all_spells.py 2>&1 | tee /tmp/logs/all_spells.log; then
-            { grep -aE "FAIL|Could not|Traceback|AssertionError|\[Exception\]" /tmp/logs/all_spells.log | grep -avE "ALSA|snd_config|snd_func|_snd_" | tail -n 7; tail -n 3 /tmp/logs/all_spells.log; } | while IFS= read -r line; do echo "::error::$line"; done
+            bash tests/http_api/ci_report_failure.sh /tmp/logs/all_spells.log
             exit 1
           fi
         timeout-minutes: 15
@@ -121,7 +121,7 @@ jobs:
         run: |
           set -o pipefail
           if ! python3 tests/http_api/test_alchemy.py 2>&1 | tee /tmp/logs/alchemy.log; then
-            { grep -aE "FAIL|Could not|Traceback|AssertionError|\[Exception\]" /tmp/logs/alchemy.log | grep -avE "ALSA|snd_config|snd_func|_snd_" | tail -n 7; tail -n 3 /tmp/logs/alchemy.log; } | while IFS= read -r line; do echo "::error::$line"; done
+            bash tests/http_api/ci_report_failure.sh /tmp/logs/alchemy.log
             exit 1
           fi
         timeout-minutes: 15
